@@ -1,0 +1,4 @@
+/lib/
+*.o
+/test_matmul
+/.dep
