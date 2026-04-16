@@ -7,7 +7,7 @@ INCLUDES+=-I src
 
 include lib/.dep/config.mk
 
-CFLAGS?=-Wall -std=c99 $(INCLUDES) -D_DEFAULT_SOURCE
+CFLAGS?=-Wall -std=c99 $(INCLUDES) -D_DEFAULT_SOURCE -mfma
 
 OBJ=$(SRC:.c=.o)
 

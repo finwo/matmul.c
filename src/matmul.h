@@ -45,13 +45,13 @@
 extern "C" {
 #endif
 
-typedef enum {
-  MATMUL_SCALAR      = 0,
-  MATMUL_AVX2        = 1,
-  MATMUL_AVX512      = 2,
-  MATMUL_AVX512_VNNI = 3,
-  MATMUL_AVXVNNI     = 4
-} matmul_feature_t;
+#define MATMUL_FLAG_SCALAR      (1 << 0)
+#define MATMUL_FLAG_AVX2        (1 << 1)
+#define MATMUL_FLAG_AVX512      (1 << 2)
+#define MATMUL_FLAG_AVX512_VNNI (1 << 3)
+#define MATMUL_FLAG_AVXVNNI     (1 << 4)
+
+typedef uint32_t matmul_feature_t;
 
 matmul_feature_t matmul_get_feature(void);
 const char      *matmul_get_feature_name(matmul_feature_t feat);
@@ -185,6 +185,29 @@ int matmul_scalar_u8_u8_f32(size_t m, size_t n, size_t p, const uint8_t *A, cons
 int matmul_scalar_u8_u8_f64(size_t m, size_t n, size_t p, const uint8_t *A, const uint8_t *B, double *C, double scale);
 int matmul_scalar_u8_u8_i8(size_t m, size_t n, size_t p, const uint8_t *A, const uint8_t *B, int8_t *C, double scale);
 int matmul_scalar_u8_u8_u8(size_t m, size_t n, size_t p, const uint8_t *A, const uint8_t *B, uint8_t *C, double scale);
+
+#ifdef __AVX2__
+#include <immintrin.h>
+int matmul_avx2_f32_f32_f32(size_t m, size_t n, size_t p, const float *A, const float *B, float *C, double scale);
+int matmul_avx2_f32_f32_f64(size_t m, size_t n, size_t p, const float *A, const float *B, double *C, double scale);
+int matmul_avx2_f32_f64_f32(size_t m, size_t n, size_t p, const float *A, const double *B, float *C, double scale);
+int matmul_avx2_f32_f64_f64(size_t m, size_t n, size_t p, const float *A, const double *B, double *C, double scale);
+int matmul_avx2_f64_f32_f32(size_t m, size_t n, size_t p, const double *A, const float *B, float *C, double scale);
+int matmul_avx2_f64_f32_f64(size_t m, size_t n, size_t p, const double *A, const float *B, double *C, double scale);
+int matmul_avx2_f64_f64_f32(size_t m, size_t n, size_t p, const double *A, const double *B, float *C, double scale);
+int matmul_avx2_f64_f64_f64(size_t m, size_t n, size_t p, const double *A, const double *B, double *C, double scale);
+#endif
+
+#ifdef __AVX512F__
+int matmul_avx512_f32_f32_f32(size_t m, size_t n, size_t p, const float *A, const float *B, float *C, double scale);
+int matmul_avx512_f32_f32_f64(size_t m, size_t n, size_t p, const float *A, const float *B, double *C, double scale);
+int matmul_avx512_f32_f64_f32(size_t m, size_t n, size_t p, const float *A, const double *B, float *C, double scale);
+int matmul_avx512_f32_f64_f64(size_t m, size_t n, size_t p, const float *A, const double *B, double *C, double scale);
+int matmul_avx512_f64_f32_f32(size_t m, size_t n, size_t p, const double *A, const float *B, float *C, double scale);
+int matmul_avx512_f64_f32_f64(size_t m, size_t n, size_t p, const double *A, const float *B, double *C, double scale);
+int matmul_avx512_f64_f64_f32(size_t m, size_t n, size_t p, const double *A, const double *B, float *C, double scale);
+int matmul_avx512_f64_f64_f64(size_t m, size_t n, size_t p, const double *A, const double *B, double *C, double scale);
+#endif
 
 #define matmul(m, n, p, A, B, C, scale)    \
   _Generic((A),                            \
