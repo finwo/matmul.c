@@ -14,7 +14,7 @@ OBJ=$(SRC:.c=.o)
 BIN=\
 	test_matmul
 
-default: README.md $(BIN)
+default: $(BIN)
 
 $(BIN): $(OBJ) test/$(BIN:=.o)
 	$(CC) $(CFLAGS) $(OBJ) test/$@.o -o $@
@@ -24,8 +24,8 @@ clean:
 	rm -f $(OBJ)
 	rm -f $(BIN:=.o)
 
-README.md: ${SRC} src/matmul.h
-	stddoc < src/matmul.h > README.md
+# README.md: ${SRC} src/matmul.h
+# 	stddoc < src/matmul.h > README.md
 
 .PHONY: format
 format:
