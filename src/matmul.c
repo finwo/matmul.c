@@ -46,6 +46,14 @@
 #include <omp.h>
 #endif
 
+#define MATMUL_FLAG_SCALAR      (1 << 0)
+#define MATMUL_FLAG_AVX2        (1 << 1)
+#define MATMUL_FLAG_AVX512      (1 << 2)
+#define MATMUL_FLAG_AVX512_VNNI (1 << 3)
+#define MATMUL_FLAG_AVXVNNI     (1 << 4)
+
+typedef uint32_t matmul_feature_t;
+
 static matmul_feature_t g_feature = 0;
 
 static void init_feature(void) {
