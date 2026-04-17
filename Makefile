@@ -5,9 +5,11 @@ FIND=$(shell which gfind find | head -1)
 INCLUDES?=
 INCLUDES+=-I src
 
+CFLAGS?=-Wall -std=c99
+
 include lib/.dep/config.mk
 
-CFLAGS?=-Wall -std=c99 $(INCLUDES) -D_DEFAULT_SOURCE -mfma
+CGLAGS+=$(INCLUDES)
 
 OBJ=$(SRC:.c=.o)
 
