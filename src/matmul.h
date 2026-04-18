@@ -45,157 +45,16 @@
 extern "C" {
 #endif
 
-extern int (*matmul_f32_f32_f32)(size_t, size_t, size_t, const float *, const float *, float *, double);
-extern int (*matmul_f32_f32_f64)(size_t, size_t, size_t, const float *, const float *, double *, double);
-extern int (*matmul_f32_f32_i8)(size_t, size_t, size_t, const float *, const float *, int8_t *, double);
-extern int (*matmul_f32_f32_u8)(size_t, size_t, size_t, const float *, const float *, uint8_t *, double);
-extern int (*matmul_f32_f64_f32)(size_t, size_t, size_t, const float *, const double *, float *, double);
-extern int (*matmul_f32_f64_f64)(size_t, size_t, size_t, const float *, const double *, double *, double);
-extern int (*matmul_f32_f64_i8)(size_t, size_t, size_t, const float *, const double *, int8_t *, double);
-extern int (*matmul_f32_f64_u8)(size_t, size_t, size_t, const float *, const double *, uint8_t *, double);
-extern int (*matmul_f32_i8_f32)(size_t, size_t, size_t, const float *, const int8_t *, float *, double);
-extern int (*matmul_f32_i8_f64)(size_t, size_t, size_t, const float *, const int8_t *, double *, double);
-extern int (*matmul_f32_i8_i8)(size_t, size_t, size_t, const float *, const int8_t *, int8_t *, double);
-extern int (*matmul_f32_i8_u8)(size_t, size_t, size_t, const float *, const int8_t *, uint8_t *, double);
-extern int (*matmul_f32_u8_f32)(size_t, size_t, size_t, const float *, const uint8_t *, float *, double);
-extern int (*matmul_f32_u8_f64)(size_t, size_t, size_t, const float *, const uint8_t *, double *, double);
-extern int (*matmul_f32_u8_i8)(size_t, size_t, size_t, const float *, const uint8_t *, int8_t *, double);
-extern int (*matmul_f32_u8_u8)(size_t, size_t, size_t, const float *, const uint8_t *, uint8_t *, double);
-extern int (*matmul_f64_f32_f32)(size_t, size_t, size_t, const double *, const float *, float *, double);
-extern int (*matmul_f64_f32_f64)(size_t, size_t, size_t, const double *, const float *, double *, double);
-extern int (*matmul_f64_f32_i8)(size_t, size_t, size_t, const double *, const float *, int8_t *, double);
-extern int (*matmul_f64_f32_u8)(size_t, size_t, size_t, const double *, const float *, uint8_t *, double);
-extern int (*matmul_f64_f64_f32)(size_t, size_t, size_t, const double *, const double *, float *, double);
-extern int (*matmul_f64_f64_f64)(size_t, size_t, size_t, const double *, const double *, double *, double);
-extern int (*matmul_f64_f64_i8)(size_t, size_t, size_t, const double *, const double *, int8_t *, double);
-extern int (*matmul_f64_f64_u8)(size_t, size_t, size_t, const double *, const double *, uint8_t *, double);
-extern int (*matmul_f64_i8_f32)(size_t, size_t, size_t, const double *, const int8_t *, float *, double);
-extern int (*matmul_f64_i8_f64)(size_t, size_t, size_t, const double *, const int8_t *, double *, double);
-extern int (*matmul_f64_i8_i8)(size_t, size_t, size_t, const double *, const int8_t *, int8_t *, double);
-extern int (*matmul_f64_i8_u8)(size_t, size_t, size_t, const double *, const int8_t *, uint8_t *, double);
-extern int (*matmul_f64_u8_f32)(size_t, size_t, size_t, const double *, const uint8_t *, float *, double);
-extern int (*matmul_f64_u8_f64)(size_t, size_t, size_t, const double *, const uint8_t *, double *, double);
-extern int (*matmul_f64_u8_i8)(size_t, size_t, size_t, const double *, const uint8_t *, int8_t *, double);
-extern int (*matmul_f64_u8_u8)(size_t, size_t, size_t, const double *, const uint8_t *, uint8_t *, double);
-extern int (*matmul_i8_f32_f32)(size_t, size_t, size_t, const int8_t *, const float *, float *, double);
-extern int (*matmul_i8_f32_f64)(size_t, size_t, size_t, const int8_t *, const float *, double *, double);
-extern int (*matmul_i8_f32_i8)(size_t, size_t, size_t, const int8_t *, const float *, int8_t *, double);
-extern int (*matmul_i8_f32_u8)(size_t, size_t, size_t, const int8_t *, const float *, uint8_t *, double);
-extern int (*matmul_i8_f64_f32)(size_t, size_t, size_t, const int8_t *, const double *, float *, double);
-extern int (*matmul_i8_f64_f64)(size_t, size_t, size_t, const int8_t *, const double *, double *, double);
-extern int (*matmul_i8_f64_i8)(size_t, size_t, size_t, const int8_t *, const double *, int8_t *, double);
-extern int (*matmul_i8_f64_u8)(size_t, size_t, size_t, const int8_t *, const double *, uint8_t *, double);
-extern int (*matmul_i8_i8_f32)(size_t, size_t, size_t, const int8_t *, const int8_t *, float *, double);
-extern int (*matmul_i8_i8_f64)(size_t, size_t, size_t, const int8_t *, const int8_t *, double *, double);
-extern int (*matmul_i8_i8_i8)(size_t, size_t, size_t, const int8_t *, const int8_t *, int8_t *, double);
-extern int (*matmul_i8_i8_u8)(size_t, size_t, size_t, const int8_t *, const int8_t *, uint8_t *, double);
-extern int (*matmul_i8_u8_f32)(size_t, size_t, size_t, const int8_t *, const uint8_t *, float *, double);
-extern int (*matmul_i8_u8_f64)(size_t, size_t, size_t, const int8_t *, const uint8_t *, double *, double);
-extern int (*matmul_i8_u8_i8)(size_t, size_t, size_t, const int8_t *, const uint8_t *, int8_t *, double);
-extern int (*matmul_i8_u8_u8)(size_t, size_t, size_t, const int8_t *, const uint8_t *, uint8_t *, double);
-extern int (*matmul_u8_f32_f32)(size_t, size_t, size_t, const uint8_t *, const float *, float *, double);
-extern int (*matmul_u8_f32_f64)(size_t, size_t, size_t, const uint8_t *, const float *, double *, double);
-extern int (*matmul_u8_f32_i8)(size_t, size_t, size_t, const uint8_t *, const float *, int8_t *, double);
-extern int (*matmul_u8_f32_u8)(size_t, size_t, size_t, const uint8_t *, const float *, uint8_t *, double);
-extern int (*matmul_u8_f64_f32)(size_t, size_t, size_t, const uint8_t *, const double *, float *, double);
-extern int (*matmul_u8_f64_f64)(size_t, size_t, size_t, const uint8_t *, const double *, double *, double);
-extern int (*matmul_u8_f64_i8)(size_t, size_t, size_t, const uint8_t *, const double *, int8_t *, double);
-extern int (*matmul_u8_f64_u8)(size_t, size_t, size_t, const uint8_t *, const double *, uint8_t *, double);
-extern int (*matmul_u8_i8_f32)(size_t, size_t, size_t, const uint8_t *, const int8_t *, float *, double);
-extern int (*matmul_u8_i8_f64)(size_t, size_t, size_t, const uint8_t *, const int8_t *, double *, double);
-extern int (*matmul_u8_i8_i8)(size_t, size_t, size_t, const uint8_t *, const int8_t *, int8_t *, double);
 extern int (*matmul_u8_i8_u8)(size_t, size_t, size_t, const uint8_t *, const int8_t *, uint8_t *, double);
-extern int (*matmul_u8_u8_f32)(size_t, size_t, size_t, const uint8_t *, const uint8_t *, float *, double);
-extern int (*matmul_u8_u8_f64)(size_t, size_t, size_t, const uint8_t *, const uint8_t *, double *, double);
-extern int (*matmul_u8_u8_i8)(size_t, size_t, size_t, const uint8_t *, const uint8_t *, int8_t *, double);
-extern int (*matmul_u8_u8_u8)(size_t, size_t, size_t, const uint8_t *, const uint8_t *, uint8_t *, double);
 
-#define matmul(m, n, p, A, B, C, scale)    \
-  _Generic((A),                            \
-      float: _Generic((B),                 \
-          float: _Generic((C),             \
-              float: matmul_f32_f32_f32,   \
-              double: matmul_f32_f32_f64,  \
-              int8_t: matmul_f32_f32_i8,   \
-              uint8_t: matmul_f32_f32_u8), \
-          double: _Generic((C),            \
-              float: matmul_f32_f64_f32,   \
-              double: matmul_f32_f64_f64,  \
-              int8_t: matmul_f32_f64_i8,   \
-              uint8_t: matmul_f32_f64_u8), \
-          int8_t: _Generic((C),            \
-              float: matmul_f32_i8_f32,    \
-              double: matmul_f32_i8_f64,   \
-              int8_t: matmul_f32_i8_i8,    \
-              uint8_t: matmul_f32_i8_u8),  \
-          uint8_t: _Generic((C),           \
-              float: matmul_f32_u8_f32,    \
-              double: matmul_f32_u8_f64,   \
-              int8_t: matmul_f32_u8_i8,    \
-              uint8_t: matmul_f32_u8_u8)), \
-      double: _Generic((B),                \
-          float: _Generic((C),             \
-              float: matmul_f64_f32_f32,   \
-              double: matmul_f64_f32_f64,  \
-              int8_t: matmul_f64_f32_i8,   \
-              uint8_t: matmul_f64_f32_u8), \
-          double: _Generic((C),            \
-              float: matmul_f64_f64_f32,   \
-              double: matmul_f64_f64_f64,  \
-              int8_t: matmul_f64_f64_i8,   \
-              uint8_t: matmul_f64_f64_u8), \
-          int8_t: _Generic((C),            \
-              float: matmul_f64_i8_f32,    \
-              double: matmul_f64_i8_f64,   \
-              int8_t: matmul_f64_i8_i8,    \
-              uint8_t: matmul_f64_i8_u8),  \
-          uint8_t: _Generic((C),           \
-              float: matmul_f64_u8_f32,    \
-              double: matmul_f64_u8_f64,   \
-              int8_t: matmul_f64_u8_i8,    \
-              uint8_t: matmul_f64_u8_u8)), \
-      int8_t: _Generic((B),                \
-          float: _Generic((C),             \
-              float: matmul_i8_f32_f32,    \
-              double: matmul_i8_f32_f64,   \
-              int8_t: matmul_i8_f32_i8,    \
-              uint8_t: matmul_i8_f32_u8),  \
-          double: _Generic((C),            \
-              float: matmul_i8_f64_f32,    \
-              double: matmul_i8_f64_f64,   \
-              int8_t: matmul_i8_f64_i8,    \
-              uint8_t: matmul_i8_f64_u8),  \
-          int8_t: _Generic((C),            \
-              float: matmul_i8_i8_f32,     \
-              double: matmul_i8_i8_f64,    \
-              int8_t: matmul_i8_i8_i8,     \
-              uint8_t: matmul_i8_i8_u8),   \
-          uint8_t: _Generic((C),           \
-              float: matmul_i8_u8_f32,     \
-              double: matmul_i8_u8_f64,    \
-              int8_t: matmul_i8_u8_i8,     \
-              uint8_t: matmul_i8_u8_u8)),  \
-      uint8_t: _Generic((B),               \
-          float: _Generic((C),             \
-              float: matmul_u8_f32_f32,    \
-              double: matmul_u8_f32_f64,   \
-              int8_t: matmul_u8_f32_i8,    \
-              uint8_t: matmul_u8_f32_u8),  \
-          double: _Generic((C),            \
-              float: matmul_u8_f64_f32,    \
-              double: matmul_u8_f64_f64,   \
-              int8_t: matmul_u8_f64_i8,    \
-              uint8_t: matmul_u8_f64_u8),  \
-          int8_t: _Generic((C),            \
-              float: matmul_u8_i8_f32,     \
-              double: matmul_u8_i8_f64,    \
-              int8_t: matmul_u8_i8_i8,     \
-              uint8_t: matmul_u8_i8_u8),   \
-          uint8_t: _Generic((C),           \
-              float: matmul_u8_u8_f32,     \
-              double: matmul_u8_u8_f64,    \
-              int8_t: matmul_u8_u8_i8,     \
-              uint8_t: matmul_u8_u8_u8)))((m), (n), (p), (A), (B), (C), (scale))
+#define matmul(m, n, p, A, B, C, scale) \
+  _Generic((A),                         \
+      uint8_t *: _Generic((B),          \
+        int8_t *: _Generic((C),         \
+          uint8_t *: matmul_u8_i8_u8    \
+        )                               \
+      )                                 \
+    )((m), (n), (p), (A), (B), (C), (scale))
 
 #ifdef __cplusplus
 }
