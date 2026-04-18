@@ -1,6 +1,9 @@
-# Matmul - High-Performance Matrix Multiplication Library
+# Matmul - Accelerated Matrix Multiplication Library
 
-A lightweight, type-safe matrix multiplication library with compile-time dispatch, scaling support, and infrastructure for SIMD acceleration.
+A lightweight, type-safe matrix multiplication library with runtime dispatch and SIMD acceleration.
+
+**Current Implementation:** `uint8_t` × `int8_t` → `uint8_t`  
+*(additional type combinations planned)*
 
 ## Installation
 
@@ -14,12 +17,11 @@ Alternatively, you can include the [matmul.c](src/matmul.c) and [matmul.h](src/m
 
 ## Features
 
-- **64 Type Combinations**: Supports all combinations of f32/f64/i8/u8 for input matrices A, B and output C
-- **Compile-Time Dispatch**: Uses C11 `_Generic` for zero-overhead type detection
-- **Scale Parameter**: Divide output before writing (e.g., scale=64 for quantization emulation)
-- **Future SIMD Ready**: Infrastructure in place for AVX2/AVX512/VNNI acceleration
+- **SIMD Acceleration**: AVX2, AVX512, AVX-VNNI, and AVX512-VNNI with automatic CPU feature detection
+- **Multi-Core Parallelization**: OpenMP-based parallel processing across matrix rows
+- **Tiled Algorithm**: Cache-blocking for improved locality at large matrix sizes
 - **No Dependencies**: Pure C11 implementation with no external libraries
-- **Well Tested**: 64 unit tests covering all type combinations
+- **Well Tested**: Unit tests verify correctness across all implementations
 
 ## Quick Start
 
@@ -28,25 +30,25 @@ Alternatively, you can include the [matmul.c](src/matmul.c) and [matmul.h](src/m
 #include <stdio.h>
 
 int main() {
-    // 2x3 matrix A
-    float A[6] = {1, 2, 3, 4, 5, 6};
-    // 3x2 matrix B
-    float B[6] = {1, 0, 0, 1, 0, 0};
-    // 2x2 result matrix C
-    float C[4];
+    // 2x3 matrix A (uint8_t)
+    uint8_t A[6] = {1, 2, 3, 4, 5, 6};
+    // 3x2 matrix B (int8_t)
+    int8_t  B[6] = {1, 0, 0, 1, 0, 0};
+    // 2x2 result matrix C (uint8_t)
+    uint8_t C[4];
 
     // Multiply A(2x3) * B(3x2) = C(2x2)
     matmul(2, 3, 2, A, B, C, 0.0);  // scale=0: no scaling
 
     // C should be [1, 2, 4, 5]
-    printf("C[0] = %f, C[1] = %f, C[2] = %f, C[3] = %f\n",
+    printf("C[0] = %u, C[1] = %u, C[2] = %u, C[3] = %u\n",
            C[0], C[1], C[2], C[3]);
 
     return 0;
 }
 ```
 
-Compile with: `cc -o example example.c -lm`
+Compile with: `cc -o example example.c -lm -fopenmp`
 
 ## API Reference
 
@@ -58,19 +60,17 @@ matmul(m, n, p, A, B, C, scale);
 - `scale`: Divide each output element by this value before writing (0 or 1 = no scaling)
 
 ### Direct Function Calls
-Each of the 64 type combinations is available directly:
 ```c
-// Floating point
-matmul_f32_f32_f32(m, n, p, A, B, C, scale);
-matmul_f32_f32_f64(m, n, p, A, B, C, scale);
-matmul_f32_f64_f32(m, n, p, A, B, C, scale);
-// ... etc for all 64 combinations
+// Currently implemented type combination (u8 × i8 → u8)
+int matmul_u8_i8_u8(size_t m, size_t n, size_t p,
+                    const uint8_t *A, const int8_t *B,
+                    uint8_t *C, double scale);
 
-// Integer types
-matmul_i8_i8_i8(m, n, p, A, B, C, scale);
-matmul_u8_u8_u8(m, n, p, A, B, C, scale);
-matmul_i8_u8_i8(m, n, p, A, B, C, scale);
-// ... etc
+// Scalar and SIMD variants
+int matmul_scalar_u8_i8_u8(...);
+int matmul_avx2_u8_i8_u8(...);
+int matmul_avx512_u8_i8_u8(...);
+int matmul_avxvnni_u8_i8_u8(...);
 ```
 
 ### Type Naming Conventions
@@ -105,30 +105,45 @@ make
 # Run tests
 ./test_matmul
 
+# Run benchmarks (optional, needs ~800MB RAM for 16K×16K)
+./benchmark
+
 # Clean build artifacts
 make clean
 ```
 
-Requires a C11 compiler (gcc, clang, MSVC).
+Requires a C11 compiler (gcc, clang, MSVC) with OpenMP support.
+
+## Performance
+
+On an AMD Ryzen 7 9800X3D (Zen 5, 16 cores), with AVX2/AVX-VNNI/AVX512/AVX512-VNNI enabled:
+
+| Matrix Size | Time (ms)  | GFLOPS  |
+|-------------|-----------|---------|
+| 1024×1024   | ~2.4      | ~880    |
+| 4096×4096   | ~173      | ~795    |
+| 16384×16384 | ~12970    | ~678    |
+
+The 16384×16384 case exceeds L3 cache (~768MB total), so performance is memory-bound. For optimal performance use matrices that fit in L3 (≤4096 on most CPUs).
 
 ## Testing
 
-The library includes 64 unit tests covering all type combinations:
+The library includes unit tests verifying correctness across all implementations:
 - Run: `./test_matmul`
-- Tests verify correctness against reference implementations
-- Output shows PASS/FAIL status for each type combination
+- Tests verify correctness against reference scalar implementation
+- Output shows PASS/FAIL status for each implementation (scalar, AVX2, AVX512, dispatched)
 
-## Future Work
+## Implementation Notes
 
-SIMD acceleration infrastructure is already in place:
-- Auto-dispatch functions (`_matmul_*`) replace function pointers on first call
-- Ready for AVX2, AVX512, AVX512-VNNI, and AVX-VNNI implementations
-- When implemented, dispatch will select best available CPU features at runtime
-- Fallback chain: AVX512-VNNI → AVX512 → AVX2 → Scalar
+- **Automatic dispatch**: The first call runtime-detects CPU features and selects the optimal implementation
+- **Dispatch priority**: AVX512-VNNI → AVX512 → AVX-VNNI → AVX2 → Scalar
+- **Parallelization**: OpenMP `parallel for` with `static` scheduling across row blocks
+- **Tiling**: Blocking factors tuned for L1/L2 cache (ib=32/64, jb=64, kb=32/64 depending on SIMD width)
 
 ## License
 
 Licensed under custom terms (Copyright 2026 finwo); see LICENSE.md for full details.
 
 ---
+
 *Built with C11. Zero runtime overhead for type dispatch.*

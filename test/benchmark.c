@@ -1,148 +1,99 @@
-#include "nemequ/munit.h"
-#include "../src/matmul.h"
+#define _POSIX_C_SOURCE 199309L
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 
-static float *alloc_f32(size_t size) {
-    return (float*)calloc(size, sizeof(float));
+#include "../src/matmul.h"
+
+#define RUNS 100
+
+static struct timespec timespec_now(void) {
+  struct timespec ts;
+  clock_gettime(CLOCK_MONOTONIC, &ts);
+  return ts;
 }
 
-static double *alloc_f64(size_t size) {
-    return (double*)calloc(size, sizeof(double));
+static double timespec_diff_ms(struct timespec start, struct timespec end) {
+  return (end.tv_sec - start.tv_sec) * 1000.0 + (end.tv_nsec - start.tv_nsec) / 1e6;
 }
 
-static int8_t *alloc_i8(size_t size) {
-    return (int8_t*)calloc(size, sizeof(int8_t));
+static int compare_double(const void *a, const void *b) {
+  double da = *(const double *)a;
+  double db = *(const double *)b;
+  return (da > db) - (da < db);
 }
 
-static uint8_t *alloc_u8(size_t size) {
-    return (uint8_t*)calloc(size, sizeof(uint8_t));
+static double percentile(double *sorted, double p, int n) {
+  double idx  = p / 100.0 * (n - 1);
+  int    lo   = (int)idx;
+  int    hi   = lo + 1;
+  double frac = idx - lo;
+  if (hi >= n) hi = n - 1;
+  return sorted[lo] * (1.0 - frac) + sorted[hi] * frac;
 }
 
-static double get_time_ms(void) {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ts.tv_sec * 1000.0 + ts.tv_nsec / 1000000.0;
+static void bench(size_t m, size_t n, size_t p, int runs) {
+  uint8_t *A     = malloc(m * n);
+  int8_t  *B     = malloc(n * p);
+  uint8_t *C     = malloc(m * p);
+  uint8_t *Cwarm = malloc(m * p);
+  double   times[RUNS];
+
+  if (!A || !B || !C || !Cwarm) {
+    fprintf(stderr, "OOM for %zu x %zu\n", m, n);
+    free(A);
+    free(B);
+    free(C);
+    free(Cwarm);
+    return;
+  }
+
+  for (size_t i = 0; i < m * n; i++) A[i] = (uint8_t)(rand() % 256);
+  for (size_t i = 0; i < n * p; i++) B[i] = (int8_t)(rand() % 256);
+  memset(C, 0, m * p);
+  memset(Cwarm, 0, m * p);
+
+  matmul_u8_i8_u8(m, n, p, A, B, Cwarm, 0.0);
+
+  int actual_runs = runs;
+  if (m >= 4096) actual_runs = 3;
+
+  for (int r = 0; r < actual_runs; r++) {
+    memset(C, 0, m * p);
+    struct timespec start = timespec_now();
+    matmul_u8_i8_u8(m, n, p, A, B, C, 0.0);
+    struct timespec end = timespec_now();
+    times[r]            = timespec_diff_ms(start, end);
+  }
+
+  qsort(times, actual_runs, sizeof(double), compare_double);
+
+  double gflops = 2.0 * m * n * p / (percentile(times, 50, actual_runs) * 1e6);
+
+  printf("%8zu x %8zu | %6.2f | %6.2f | %6.2f | %6.2f | %6.2f | %8.1f\n", m, n, percentile(times, 1, actual_runs),
+         percentile(times, 5, actual_runs), percentile(times, 50, actual_runs), percentile(times, 95, actual_runs),
+         percentile(times, 99, actual_runs), gflops);
 }
 
-static MunitResult test_bench_f32_128x128(const MunitParameter *params, void *data) {
-    (void)params; (void)data;
-    
-    size_t m = 128, n = 128, p = 128;
-    size_t size = m * n;
-    float *A = alloc_f32(size);
-    float *B = alloc_f32(size);
-    float *C = alloc_f32(m * p);
-    
-    for (size_t i = 0; i < size; i++) {
-        A[i] = (float)(i % 100) * 0.1f;
-        B[i] = (float)((i + 7) % 100) * 0.1f;
-    }
-    
-    double start = get_time_ms();
-    for (int iter = 0; iter < 10; iter++) {
-        matmul(m, n, p, A, B, C);
-    }
-    double elapsed = get_time_ms() - start;
-    
-    matmul_feature_t feat = matmul_get_feature();
-    printf("f32 128x128: %.2f ms (feature: %s)\n", elapsed / 10.0, matmul_get_feature_name(feat));
-    
-    free(A); free(B); free(C);
-    return MUNIT_OK;
-}
+int main(void) {
+  srand(42);
 
-static MunitResult test_bench_f64_128x128(const MunitParameter *params, void *data) {
-    (void)params; (void)data;
-    
-    size_t m = 128, n = 128, p = 128;
-    size_t size = m * n;
-    double *A = alloc_f64(size);
-    double *B = alloc_f64(size);
-    double *C = alloc_f64(m * p);
-    
-    for (size_t i = 0; i < size; i++) {
-        A[i] = (double)(i % 100) * 0.1;
-        B[i] = (double)((i + 7) % 100) * 0.1;
-    }
-    
-    double start = get_time_ms();
-    for (int iter = 0; iter < 10; iter++) {
-        matmul_f64(m, n, p, A, B, C);
-    }
-    double elapsed = get_time_ms() - start;
-    
-    printf("f64 128x128: %.2f ms\n", elapsed / 10.0);
-    
-    free(A); free(B); free(C);
-    return MUNIT_OK;
-}
+  printf("Benchmark: u8_i8_u8 matmul, %d runs per size\n", RUNS);
+  printf("--------------------------------------------------------------\n");
+  printf("%8s | %8s | %8s | %8s | %8s | %8s | %8s\n", "M x N", "1% (ms)", "5% (ms)", "50% (ms)", "95% (ms)", "99% (ms)",
+         "GFLOPS");
+  printf("--------------------------------------------------------------\n");
 
-static MunitResult test_bench_i8_128x128(const MunitParameter *params, void *data) {
-    (void)params; (void)data;
-    
-    size_t m = 128, n = 128, p = 128;
-    size_t size = m * n;
-    int8_t *A = alloc_i8(size);
-    int8_t *B = alloc_i8(size);
-    int8_t *C = alloc_i8(m * p);
-    
-    for (size_t i = 0; i < size; i++) {
-        A[i] = (int8_t)(i % 256 - 128);
-        B[i] = (int8_t)((i + 7) % 256 - 128);
-    }
-    
-    double start = get_time_ms();
-    for (int iter = 0; iter < 10; iter++) {
-        matmul_i8(m, n, p, A, B, C);
-    }
-    double elapsed = get_time_ms() - start;
-    
-    printf("i8 128x128: %.2f ms\n", elapsed / 10.0);
-    
-    free(A); free(B); free(C);
-    return MUNIT_OK;
-}
+  bench(16, 16, 16, RUNS);
+  bench(64, 64, 64, RUNS);
+  bench(256, 256, 256, RUNS);
+  bench(1024, 1024, 1024, RUNS);
+  bench(4096, 4096, 4096, RUNS);
+  // bench(16384, 16384, 16384, RUNS);
 
-static MunitResult test_bench_u8_128x128(const MunitParameter *params, void *data) {
-    (void)params; (void)data;
-    
-    size_t m = 128, n = 128, p = 128;
-    size_t size = m * n;
-    uint8_t *A = alloc_u8(size);
-    uint8_t *B = alloc_u8(size);
-    uint8_t *C = alloc_u8(m * p);
-    
-    for (size_t i = 0; i < size; i++) {
-        A[i] = (uint8_t)(i % 256);
-        B[i] = (uint8_t)((i + 7) % 256);
-    }
-    
-    double start = get_time_ms();
-    for (int iter = 0; iter < 10; iter++) {
-        matmul_u8(m, n, p, A, B, C);
-    }
-    double elapsed = get_time_ms() - start;
-    
-    printf("u8 128x128: %.2f ms\n", elapsed / 10.0);
-    
-    free(A); free(B); free(C);
-    return MUNIT_OK;
-}
+  printf("--------------------------------------------------------------\n");
 
-static MunitTest tests[] = {
-    {"/f32-128x128", test_bench_f32_128x128, NULL, NULL, MUNIT_TEST_OPTION_NONE, NULL},
-    {"/f64-128x128", test_bench_f64_128x128, NULL, NULL, MUNIT_TEST_OPTION_NONE, NULL},
-    {"/i8-128x128", test_bench_i8_128x128, NULL, NULL, MUNIT_TEST_OPTION_NONE, NULL},
-    {"/u8-128x128", test_bench_u8_128x128, NULL, NULL, MUNIT_TEST_OPTION_NONE, NULL},
-    {NULL, NULL, NULL, NULL, MUNIT_TEST_OPTION_NONE, NULL}
-};
-
-static const MunitSuite suite = {
-    {"/benchmark", tests, NULL, 1, MUNIT_SUITE_OPTION_NONE},
-};
-
-int main(int argc, char *argv[MUNIT_ARRAY_PARAM(argc)]) {
-    return munit_suite_main(&suite, NULL, argc, argv);
+  return 0;
 }
