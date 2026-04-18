@@ -142,6 +142,7 @@ int matmul_scalar_u8_i8_u8(size_t m, size_t n, size_t p, const uint8_t *A, const
         for (size_t j = jj; j < j_end; j++) {
           size_t lj = j - jj;
           int    v  = acc[li * tj + lj];
+          if (scale > 1.0) v = (int)(v / scale);
           if (v > 255)
             v = 255;
           else if (v < 0)
@@ -197,6 +198,7 @@ int matmul_avx512vnni_u8_i8_u8(size_t m, size_t n, size_t p, const uint8_t *A, c
       _mm512_store_si512(tmp, result);
       for (size_t dj = 0; dj < 16; dj++) {
         int32_t v = tmp[dj];
+        if (scale > 1.0) v = (int32_t)(v / scale);
         if (v > 255)
           v = 255;
         else if (v < 0)
@@ -209,6 +211,7 @@ int matmul_avx512vnni_u8_i8_u8(size_t m, size_t n, size_t p, const uint8_t *A, c
       for (size_t k = 0; k < n; k++) {
         sum += (int)A[i * n + k] * (int)B[k * p + j];
       }
+      if (scale > 1.0) sum = (int32_t)(sum / scale);
       if (sum > 255)
         sum = 255;
       else if (sum < 0)
