@@ -241,3 +241,385 @@ static int _matmul_u8_i8_u8(size_t m, size_t n, size_t p, const uint8_t *A, cons
 }
 
 int (*matmul_u8_i8_u8)(size_t, size_t, size_t, const uint8_t *, const int8_t *, uint8_t *, double) = _matmul_u8_i8_u8;
+
+/* ========================================================================== */
+/* f32_f32_f32 implementations                                                */
+/* ========================================================================== */
+
+int matmul_scalar_f32_f32_f32(size_t m, size_t n, size_t p, const float *A, const float *B, float *C, double scale) {
+  const size_t ib = 64;
+  const size_t jb = 64;
+  const size_t kb = 16;
+
+#pragma omp parallel for schedule(static)
+  for (size_t ii = 0; ii < m; ii += ib) {
+    size_t i_end = (ii + ib < m) ? ii + ib : m;
+    for (size_t jj = 0; jj < p; jj += jb) {
+      size_t j_end = (jj + jb < p) ? jj + jb : p;
+      size_t ti    = i_end - ii;
+      size_t tj    = j_end - jj;
+      double acc[64 * 64];
+      memset(acc, 0, ti * tj * sizeof(double));
+
+      for (size_t kk = 0; kk < n; kk += kb) {
+        size_t k_end = (kk + kb < n) ? kk + kb : n;
+        for (size_t i = ii; i < i_end; i++) {
+          size_t li = i - ii;
+          for (size_t j = jj; j < j_end; j++) {
+            size_t lj  = j - jj;
+            double sum = 0.0;
+            for (size_t k = kk; k < k_end; k++) {
+              sum += (double)A[i * n + k] * (double)B[k * p + j];
+            }
+            acc[li * tj + lj] += sum;
+          }
+        }
+      }
+
+      for (size_t i = ii; i < i_end; i++) {
+        size_t li = i - ii;
+        for (size_t j = jj; j < j_end; j++) {
+          size_t lj = j - jj;
+          double v  = acc[li * tj + lj];
+          if (scale > 1.0) v /= scale;
+          C[i * p + j] = (float)v;
+        }
+      }
+    }
+  }
+  return 0;
+}
+
+#ifdef __AVX2__
+static void pack_b_f32(size_t n, size_t p, const float *B, float *B_packed) {
+  size_t n8 = n / 8;
+  size_t p8 = p / 8;
+  for (size_t j8 = 0; j8 < p8; j8++) {
+    for (size_t k8 = 0; k8 < n8; k8++) {
+      float *dst = &B_packed[(j8 * n8 + k8) * 64];
+      for (size_t dk = 0; dk < 8; dk++) {
+        size_t k = k8 * 8 + dk;
+        for (size_t dj = 0; dj < 8; dj++) {
+          size_t j         = j8 * 8 + dj;
+          dst[dk * 8 + dj] = B[k * p + j];
+        }
+      }
+    }
+  }
+}
+
+int matmul_avx2_f32_f32_f32(size_t m, size_t n, size_t p, const float *A, const float *B, float *C, double scale) {
+  size_t n8 = n / 8;
+  size_t p8 = p / 8;
+
+  float *B_packed;
+  if (posix_memalign((void **)&B_packed, 64, p8 * n8 * 64 * sizeof(float)) != 0) return -1;
+  pack_b_f32(n, p, B, B_packed);
+
+#pragma omp parallel for schedule(static)
+  for (size_t i = 0; i < m; i++) {
+    for (size_t j8 = 0; j8 < p8; j8++) {
+      __m256 result = _mm256_setzero_ps();
+      for (size_t k8 = 0; k8 < n8; k8++) {
+        for (size_t dk = 0; dk < 8; dk++) {
+          __m256 b_val   = _mm256_load_ps(&B_packed[(j8 * n8 + k8) * 64 + dk * 8]);
+          __m256 a_bcast = _mm256_set1_ps(A[i * n + k8 * 8 + dk]);
+          result         = _mm256_fmadd_ps(a_bcast, b_val, result);
+        }
+      }
+      float tmp[8] __attribute__((aligned(32)));
+      _mm256_store_ps(tmp, result);
+      for (size_t dj = 0; dj < 8; dj++) {
+        float v = tmp[dj];
+        if (scale > 1.0) v /= (float)scale;
+        C[i * p + j8 * 8 + dj] = v;
+      }
+    }
+    for (size_t j = p8 * 8; j < p; j++) {
+      double sum = 0.0;
+      for (size_t k = 0; k < n; k++) {
+        sum += (double)A[i * n + k] * (double)B[k * p + j];
+      }
+      if (scale > 1.0) sum /= scale;
+      C[i * p + j] = (float)sum;
+    }
+  }
+
+  free(B_packed);
+  return 0;
+}
+#endif
+
+#ifdef __AVX512F__
+static void pack_b_f32_512(size_t n, size_t p, const float *B, float *B_packed) {
+  size_t n16 = n / 16;
+  size_t p16 = p / 16;
+  for (size_t j16 = 0; j16 < p16; j16++) {
+    for (size_t k16 = 0; k16 < n16; k16++) {
+      float *dst = &B_packed[(j16 * n16 + k16) * 256];
+      for (size_t dk = 0; dk < 16; dk++) {
+        size_t k = k16 * 16 + dk;
+        for (size_t dj = 0; dj < 16; dj++) {
+          size_t j          = j16 * 16 + dj;
+          dst[dk * 16 + dj] = B[k * p + j];
+        }
+      }
+    }
+  }
+}
+
+int matmul_avx512_f32_f32_f32(size_t m, size_t n, size_t p, const float *A, const float *B, float *C, double scale) {
+  size_t n16 = n / 16;
+  size_t p16 = p / 16;
+
+  float *B_packed;
+  if (posix_memalign((void **)&B_packed, 64, p16 * n16 * 256 * sizeof(float)) != 0) return -1;
+  pack_b_f32_512(n, p, B, B_packed);
+
+#pragma omp parallel for schedule(static)
+  for (size_t i = 0; i < m; i++) {
+    for (size_t j16 = 0; j16 < p16; j16++) {
+      __m512 result = _mm512_setzero_ps();
+      for (size_t k16 = 0; k16 < n16; k16++) {
+        for (size_t dk = 0; dk < 16; dk++) {
+          __m512 b_val   = _mm512_load_ps(&B_packed[(j16 * n16 + k16) * 256 + dk * 16]);
+          __m512 a_bcast = _mm512_set1_ps(A[i * n + k16 * 16 + dk]);
+          result         = _mm512_fmadd_ps(a_bcast, b_val, result);
+        }
+      }
+      float tmp[16] __attribute__((aligned(64)));
+      _mm512_store_ps(tmp, result);
+      for (size_t dj = 0; dj < 16; dj++) {
+        float v = tmp[dj];
+        if (scale > 1.0) v /= (float)scale;
+        C[i * p + j16 * 16 + dj] = v;
+      }
+    }
+    for (size_t j = p16 * 16; j < p; j++) {
+      double sum = 0.0;
+      for (size_t k = 0; k < n; k++) {
+        sum += (double)A[i * n + k] * (double)B[k * p + j];
+      }
+      if (scale > 1.0) sum /= scale;
+      C[i * p + j] = (float)sum;
+    }
+  }
+
+  free(B_packed);
+  return 0;
+}
+#endif
+
+static int _matmul_f32_f32_f32(size_t m, size_t n, size_t p, const float *A, const float *B, float *C, double scale) {
+  static int initialized = 0;
+  if (!initialized) {
+    matmul_feature_t feat = matmul_get_feature();
+#ifdef __AVX512F__
+    if (feat & MATMUL_FLAG_AVX512)
+      matmul_f32_f32_f32 = matmul_avx512_f32_f32_f32;
+    else
+#endif
+#ifdef __AVX2__
+        if (feat & MATMUL_FLAG_AVX2)
+      matmul_f32_f32_f32 = matmul_avx2_f32_f32_f32;
+    else
+#endif
+      matmul_f32_f32_f32 = matmul_scalar_f32_f32_f32;
+    initialized = 1;
+  }
+  return matmul_f32_f32_f32(m, n, p, A, B, C, scale);
+}
+
+int (*matmul_f32_f32_f32)(size_t, size_t, size_t, const float *, const float *, float *, double) = _matmul_f32_f32_f32;
+
+/* ========================================================================== */
+/* f64_f64_f64 implementations                                                */
+/* ========================================================================== */
+
+int matmul_scalar_f64_f64_f64(size_t m, size_t n, size_t p, const double *A, const double *B, double *C, double scale) {
+  const size_t ib = 64;
+  const size_t jb = 64;
+  const size_t kb = 8;
+
+#pragma omp parallel for schedule(static)
+  for (size_t ii = 0; ii < m; ii += ib) {
+    size_t i_end = (ii + ib < m) ? ii + ib : m;
+    for (size_t jj = 0; jj < p; jj += jb) {
+      size_t j_end = (jj + jb < p) ? jj + jb : p;
+      size_t ti    = i_end - ii;
+      size_t tj    = j_end - jj;
+      double acc[64 * 64];
+      memset(acc, 0, ti * tj * sizeof(double));
+
+      for (size_t kk = 0; kk < n; kk += kb) {
+        size_t k_end = (kk + kb < n) ? kk + kb : n;
+        for (size_t i = ii; i < i_end; i++) {
+          size_t li = i - ii;
+          for (size_t j = jj; j < j_end; j++) {
+            size_t lj  = j - jj;
+            double sum = 0.0;
+            for (size_t k = kk; k < k_end; k++) {
+              sum += A[i * n + k] * B[k * p + j];
+            }
+            acc[li * tj + lj] += sum;
+          }
+        }
+      }
+
+      for (size_t i = ii; i < i_end; i++) {
+        size_t li = i - ii;
+        for (size_t j = jj; j < j_end; j++) {
+          size_t lj = j - jj;
+          double v  = acc[li * tj + lj];
+          if (scale > 1.0) v /= scale;
+          C[i * p + j] = v;
+        }
+      }
+    }
+  }
+  return 0;
+}
+
+#ifdef __AVX2__
+static void pack_b_f64(size_t n, size_t p, const double *B, double *B_packed) {
+  size_t n4 = n / 4;
+  size_t p4 = p / 4;
+  for (size_t j4 = 0; j4 < p4; j4++) {
+    for (size_t k4 = 0; k4 < n4; k4++) {
+      double *dst = &B_packed[(j4 * n4 + k4) * 16];
+      for (size_t dk = 0; dk < 4; dk++) {
+        size_t k = k4 * 4 + dk;
+        for (size_t dj = 0; dj < 4; dj++) {
+          size_t j         = j4 * 4 + dj;
+          dst[dk * 4 + dj] = B[k * p + j];
+        }
+      }
+    }
+  }
+}
+
+int matmul_avx2_f64_f64_f64(size_t m, size_t n, size_t p, const double *A, const double *B, double *C, double scale) {
+  size_t n4 = n / 4;
+  size_t p4 = p / 4;
+
+  double *B_packed;
+  if (posix_memalign((void **)&B_packed, 64, p4 * n4 * 16 * sizeof(double)) != 0) return -1;
+  pack_b_f64(n, p, B, B_packed);
+
+#pragma omp parallel for schedule(static)
+  for (size_t i = 0; i < m; i++) {
+    for (size_t j4 = 0; j4 < p4; j4++) {
+      __m256d result = _mm256_setzero_pd();
+      for (size_t k4 = 0; k4 < n4; k4++) {
+        for (size_t dk = 0; dk < 4; dk++) {
+          __m256d b_val   = _mm256_load_pd(&B_packed[(j4 * n4 + k4) * 16 + dk * 4]);
+          __m256d a_bcast = _mm256_set1_pd(A[i * n + k4 * 4 + dk]);
+          result          = _mm256_fmadd_pd(a_bcast, b_val, result);
+        }
+      }
+      double tmp[4] __attribute__((aligned(32)));
+      _mm256_store_pd(tmp, result);
+      for (size_t dj = 0; dj < 4; dj++) {
+        double v = tmp[dj];
+        if (scale > 1.0) v /= scale;
+        C[i * p + j4 * 4 + dj] = v;
+      }
+    }
+    for (size_t j = p4 * 4; j < p; j++) {
+      double sum = 0.0;
+      for (size_t k = 0; k < n; k++) {
+        sum += A[i * n + k] * B[k * p + j];
+      }
+      if (scale > 1.0) sum /= scale;
+      C[i * p + j] = sum;
+    }
+  }
+
+  free(B_packed);
+  return 0;
+}
+#endif
+
+#ifdef __AVX512F__
+static void pack_b_f64_512(size_t n, size_t p, const double *B, double *B_packed) {
+  size_t n8 = n / 8;
+  size_t p8 = p / 8;
+  for (size_t j8 = 0; j8 < p8; j8++) {
+    for (size_t k8 = 0; k8 < n8; k8++) {
+      double *dst = &B_packed[(j8 * n8 + k8) * 64];
+      for (size_t dk = 0; dk < 8; dk++) {
+        size_t k = k8 * 8 + dk;
+        for (size_t dj = 0; dj < 8; dj++) {
+          size_t j         = j8 * 8 + dj;
+          dst[dk * 8 + dj] = B[k * p + j];
+        }
+      }
+    }
+  }
+}
+
+int matmul_avx512_f64_f64_f64(size_t m, size_t n, size_t p, const double *A, const double *B, double *C, double scale) {
+  size_t n8 = n / 8;
+  size_t p8 = p / 8;
+
+  double *B_packed;
+  if (posix_memalign((void **)&B_packed, 64, p8 * n8 * 64 * sizeof(double)) != 0) return -1;
+  pack_b_f64_512(n, p, B, B_packed);
+
+#pragma omp parallel for schedule(static)
+  for (size_t i = 0; i < m; i++) {
+    for (size_t j8 = 0; j8 < p8; j8++) {
+      __m512d result = _mm512_setzero_pd();
+      for (size_t k8 = 0; k8 < n8; k8++) {
+        for (size_t dk = 0; dk < 8; dk++) {
+          __m512d b_val   = _mm512_load_pd(&B_packed[(j8 * n8 + k8) * 64 + dk * 8]);
+          __m512d a_bcast = _mm512_set1_pd(A[i * n + k8 * 8 + dk]);
+          result          = _mm512_fmadd_pd(a_bcast, b_val, result);
+        }
+      }
+      double tmp[8] __attribute__((aligned(64)));
+      _mm512_store_pd(tmp, result);
+      for (size_t dj = 0; dj < 8; dj++) {
+        double v = tmp[dj];
+        if (scale > 1.0) v /= scale;
+        C[i * p + j8 * 8 + dj] = v;
+      }
+    }
+    for (size_t j = p8 * 8; j < p; j++) {
+      double sum = 0.0;
+      for (size_t k = 0; k < n; k++) {
+        sum += A[i * n + k] * B[k * p + j];
+      }
+      if (scale > 1.0) sum /= scale;
+      C[i * p + j] = sum;
+    }
+  }
+
+  free(B_packed);
+  return 0;
+}
+#endif
+
+static int _matmul_f64_f64_f64(size_t m, size_t n, size_t p, const double *A, const double *B, double *C,
+                               double scale) {
+  static int initialized = 0;
+  if (!initialized) {
+    matmul_feature_t feat = matmul_get_feature();
+#ifdef __AVX512F__
+    if (feat & MATMUL_FLAG_AVX512)
+      matmul_f64_f64_f64 = matmul_avx512_f64_f64_f64;
+    else
+#endif
+#ifdef __AVX2__
+        if (feat & MATMUL_FLAG_AVX2)
+      matmul_f64_f64_f64 = matmul_avx2_f64_f64_f64;
+    else
+#endif
+      matmul_f64_f64_f64 = matmul_scalar_f64_f64_f64;
+    initialized = 1;
+  }
+  return matmul_f64_f64_f64(m, n, p, A, B, C, scale);
+}
+
+int (*matmul_f64_f64_f64)(size_t, size_t, size_t, const double *, const double *, double *,
+                          double) = _matmul_f64_f64_f64;

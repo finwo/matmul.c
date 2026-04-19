@@ -46,15 +46,27 @@ extern "C" {
 #endif
 
 extern int (*matmul_u8_i8_u8)(size_t, size_t, size_t, const uint8_t *, const int8_t *, uint8_t *, double);
+extern int (*matmul_f32_f32_f32)(size_t, size_t, size_t, const float *, const float *, float *, double);
+extern int (*matmul_f64_f64_f64)(size_t, size_t, size_t, const double *, const double *, double *, double);
 
 #define matmul(m, n, p, A, B, C, scale) \
   _Generic((A),                         \
       uint8_t *: _Generic((B),          \
         int8_t *: _Generic((C),         \
           uint8_t *: matmul_u8_i8_u8    \
+          )                             \
+        ),                              \
+      float *: _Generic((B),            \
+        float *: _Generic((C),          \
+          float *: matmul_f32_f32_f32   \
+          )                             \
+        ),                              \
+      double *: _Generic((B),           \
+        double *: _Generic((C),         \
+          double *: matmul_f64_f64_f64  \
         )                               \
       )                                 \
-    )((m), (n), (p), (A), (B), (C), (scale))
+      )((m), (n), (p), (A), (B), (C), (scale))
 
 #ifdef __cplusplus
 }
