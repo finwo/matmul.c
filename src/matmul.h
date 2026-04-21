@@ -45,9 +45,25 @@
 extern "C" {
 #endif
 
-extern int (*matmul_u8_i8_u8)(size_t, size_t, size_t, const uint8_t *, const int8_t *, uint8_t *, double);
-extern int (*matmul_f32_f32_f32)(size_t, size_t, size_t, const float *, const float *, float *, double);
-extern int (*matmul_f64_f64_f64)(size_t, size_t, size_t, const double *, const double *, double *, double);
+#define __matmul_TYPE_u8  uint8_t
+#define __matmul_TYPE_i8  int8_t
+#define __matmul_TYPE_f32 float
+#define __matmul_TYPE_f64 double
+
+#define __matmul_EXTERN(A, B, C) extern int (*matmul_##A##_##B##_##C)(size_t, size_t, size_t, const __matmul_TYPE_##A *, const __matmul_TYPE_##B *, __matmul_TYPE_##C *, double);
+
+#define matmul_externs                                                                        \
+  __matmul_EXTERN(u8 , i8 , u8) __matmul_EXTERN(u8 , i8 , f32) __matmul_EXTERN(u8 , i8 , f64) \
+  __matmul_EXTERN(u8 , f32, u8) __matmul_EXTERN(u8 , f32, f32) __matmul_EXTERN(u8 , f32, f64) \
+  __matmul_EXTERN(u8 , f64, u8) __matmul_EXTERN(u8 , f64, f32) __matmul_EXTERN(u8 , f64, f64) \
+  __matmul_EXTERN(f32, i8 , u8) __matmul_EXTERN(f32, i8 , f32) __matmul_EXTERN(f32, i8 , f64) \
+  __matmul_EXTERN(f32, f32, u8) __matmul_EXTERN(f32, f32, f32) __matmul_EXTERN(f32, f32, f64) \
+  __matmul_EXTERN(f32, f64, u8) __matmul_EXTERN(f32, f64, f32) __matmul_EXTERN(f32, f64, f64) \
+  __matmul_EXTERN(f64, i8 , u8) __matmul_EXTERN(f64, i8 , f32) __matmul_EXTERN(f64, i8 , f64) \
+  __matmul_EXTERN(f64, f32, u8) __matmul_EXTERN(f64, f32, f32) __matmul_EXTERN(f64, f32, f64) \
+  __matmul_EXTERN(f64, f64, u8) __matmul_EXTERN(f64, f64, f32) __matmul_EXTERN(f64, f64, f64)
+
+matmul_externs
 
 #define __matmul_C(type_a,type_b)               \
   _Generic((C),                                 \
