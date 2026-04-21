@@ -50,20 +50,21 @@ extern "C" {
 #define __matmul_TYPE_f32 float
 #define __matmul_TYPE_f64 double
 
-#define __matmul_EXTERN(__MATMUL_ARG_A, __MATMUL_ARG_B, __MATMUL_ARG_C) extern int (*matmul_##__MATMUL_ARG_A##_##__MATMUL_ARG_B##_##__MATMUL_ARG_C)(size_t, size_t, size_t, const __matmul_TYPE_##__MATMUL_ARG_A *, const __matmul_TYPE_##__MATMUL_ARG_B *, __matmul_TYPE_##__MATMUL_ARG_C *, double);
+#define __matmul_EXTERN(__MATMUL_EXT_A, __MATMUL_EXT_B, __MATMUL_EXT_C) extern int (*matmul_##__MATMUL_EXT_A##_##__MATMUL_EXT_B##_##__MATMUL_EXT_C)(size_t, size_t, size_t, const __matmul_TYPE_##__MATMUL_EXT_A *, const __matmul_TYPE_##__MATMUL_EXT_B *, __matmul_TYPE_##__MATMUL_EXT_C *, double);
 
-#define matmul_externs                                                                        \
-  __matmul_EXTERN(u8 , i8 , u8) __matmul_EXTERN(u8 , i8 , f32) __matmul_EXTERN(u8 , i8 , f64) \
-  __matmul_EXTERN(u8 , f32, u8) __matmul_EXTERN(u8 , f32, f32) __matmul_EXTERN(u8 , f32, f64) \
-  __matmul_EXTERN(u8 , f64, u8) __matmul_EXTERN(u8 , f64, f32) __matmul_EXTERN(u8 , f64, f64) \
-  __matmul_EXTERN(f32, i8 , u8) __matmul_EXTERN(f32, i8 , f32) __matmul_EXTERN(f32, i8 , f64) \
-  __matmul_EXTERN(f32, f32, u8) __matmul_EXTERN(f32, f32, f32) __matmul_EXTERN(f32, f32, f64) \
-  __matmul_EXTERN(f32, f64, u8) __matmul_EXTERN(f32, f64, f32) __matmul_EXTERN(f32, f64, f64) \
-  __matmul_EXTERN(f64, i8 , u8) __matmul_EXTERN(f64, i8 , f32) __matmul_EXTERN(f64, i8 , f64) \
-  __matmul_EXTERN(f64, f32, u8) __matmul_EXTERN(f64, f32, f32) __matmul_EXTERN(f64, f32, f64) \
-  __matmul_EXTERN(f64, f64, u8) __matmul_EXTERN(f64, f64, f32) __matmul_EXTERN(f64, f64, f64)
+#define __matmul_EXTERN_C(__MATMUL_EXT_A, __MATMUL_EXT_B) \
+  __matmul_EXTERN(__MATMUL_EXT_A, __MATMUL_EXT_B, u8 ) \
+  __matmul_EXTERN(__MATMUL_EXT_A, __MATMUL_EXT_B, f32) \
+  __matmul_EXTERN(__MATMUL_EXT_A, __MATMUL_EXT_B, f64)
 
-matmul_externs
+#define __matmul_EXTERN_B(__MATMUL_EXT_A) \
+  __matmul_EXTERN_C(__MATMUL_EXT_A, i8  ) \
+  __matmul_EXTERN_C(__MATMUL_EXT_A, f32 ) \
+  __matmul_EXTERN_C(__MATMUL_EXT_A, f64 )
+
+__matmul_EXTERN_B(u8 )
+__matmul_EXTERN_B(f32)
+__matmul_EXTERN_B(f64)
 
 #define __matmul_C(__matmul_arg_type_a,__matmul_arg_type_b)               \
   _Generic((__MATMUL_ARG_C),                    \
