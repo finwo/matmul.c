@@ -50,48 +50,19 @@ extern "C" {
 #define __matmul_TYPE_f32 float
 #define __matmul_TYPE_f64 double
 
-#define __matmul_EXTERN(__MATMUL_EXT_A, __MATMUL_EXT_B, __MATMUL_EXT_C) extern int (*matmul_##__MATMUL_EXT_A##_##__MATMUL_EXT_B##_##__MATMUL_EXT_C)(size_t, size_t, size_t, const __matmul_TYPE_##__MATMUL_EXT_A *, const __matmul_TYPE_##__MATMUL_EXT_B *, __matmul_TYPE_##__MATMUL_EXT_C *, double);
+extern int matmul_not_implemented(size_t m, size_t n, size_t p, void *A, void *B, void *C, double scale);
 
-#define __matmul_EXTERN_C(__MATMUL_EXT_A, __MATMUL_EXT_B) \
-  __matmul_EXTERN(__MATMUL_EXT_A, __MATMUL_EXT_B, u8 ) \
-  __matmul_EXTERN(__MATMUL_EXT_A, __MATMUL_EXT_B, f32) \
-  __matmul_EXTERN(__MATMUL_EXT_A, __MATMUL_EXT_B, f64)
+extern int (*matmul_u8_i8_u8   )(size_t m, size_t n, size_t p, const uint8_t *A, const int8_t *B, uint8_t *C, double scale);
+extern int (*matmul_f32_f32_f32)(size_t m, size_t n, size_t p, const float   *A, const float  *B, float   *C, double scale);
+extern int (*matmul_f64_f64_f64)(size_t m, size_t n, size_t p, const double  *A, const double *B, double  *C, double scale);
 
-#define __matmul_EXTERN_B(__MATMUL_EXT_A) \
-  __matmul_EXTERN_C(__MATMUL_EXT_A, i8  ) \
-  __matmul_EXTERN_C(__MATMUL_EXT_A, f32 ) \
-  __matmul_EXTERN_C(__MATMUL_EXT_A, f64 )
-
-__matmul_EXTERN_B(u8 )
-__matmul_EXTERN_B(f32)
-__matmul_EXTERN_B(f64)
-
-#define __matmul_C(__matmul_arg_type_a,__matmul_arg_type_b)               \
-  _Generic((__MATMUL_ARG_C),                    \
-    uint8_t *: matmul_##__matmul_arg_type_a##_##__matmul_arg_type_b##_u8, \
-    float *: matmul_##__matmul_arg_type_a##_##__matmul_arg_type_b##_f32,  \
-    double *: matmul_##__matmul_arg_type_a##_##__matmul_arg_type_b##_f64  \
-  )
-
-#define __matmul_B(__matmul_arg_type_a)                 \
-  _Generic((__MATMUL_ARG_B),               \
-    int8_t *: __matmul_C(__matmul_arg_type_a,i8)        \
-    const int8_t *: __matmul_C(__matmul_arg_type_a,i8)  \
-    float *: __matmul_C(__matmul_arg_type_a,f32)        \
-    const float *: __matmul_C(__matmul_arg_type_a,f32)  \
-    double *: __matmul_C(__matmul_arg_type_a,f64)       \
-    const double *: __matmul_C(__matmul_arg_type_a,f64) \
-  )
-
-#define matmul(m,n,p,__MATMUL_ARG_A,__MATMUL_ARG_B,__MATMUL_ARG_C,scale) \
-  _Generic((__MATMUL_ARG_A),        \
-    uint8_t *: __matmul_B(u8)       \
-    const uint8_t *: __matmul_B(u8) \
-    float *: __matmul_B(f32)        \
-    const float *: __matmul_B(f32)  \
-    double *: __matmul_B(f64)       \
-    const double *: __matmul_B(f64) \
-  )(m,n,p,__MATMUL_ARG_A,__MATMUL_ARG_B,__MATMUL_ARG_C,scale)
+#define matmul(m,n,p,A,B,C) \
+  _Generic((void (*)(__typeof(A),__typeof(B),__typeof(C)))NULL, \
+    default: matmul_not_implemented, \
+    void (*)(uint8_t *, int8_t *, uint8_t *): matmul_u8_i8_u8 \
+    void (*)(float   *, float  *, float   *): matmul_f32_f32_f32 \
+    void (*)(double  *, double *, double  *): matmul_f64_f64_f64 \
+  )(m,n,p,A,B,C,scale)
 
 #ifdef __cplusplus
 }
